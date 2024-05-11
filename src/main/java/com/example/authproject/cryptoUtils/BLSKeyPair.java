@@ -8,9 +8,12 @@ import org.apache.milagro.amcl.BLS381.ECP2;
 /**
  * @author wangyike
  */
-@Getter
+
 public class BLSKeyPair {
+    @Getter
     private final ECP2 publicKey;
+
+    @Getter
     private final BIG privateKey;
 
     public BLSKeyPair(ECP2 publicKey, BIG privateKey) {
@@ -23,6 +26,6 @@ public class BLSKeyPair {
         return "BLSKeyPair{" +
                 "publicKey=" + publicKey +
                 ", privateKey=" + privateKey +
-                '}';
+                '}'+"\n" ;
     }
 }

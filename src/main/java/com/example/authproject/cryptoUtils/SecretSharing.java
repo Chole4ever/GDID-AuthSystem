@@ -1,5 +1,6 @@
 package com.example.authproject.cryptoUtils;
 
+import lombok.Getter;
 import org.apache.milagro.amcl.BLS381.*;
 import org.apache.milagro.amcl.RAND;
 import scala.util.Random;
@@ -19,11 +20,14 @@ public class SecretSharing {
 
     private BIG[][] allPolynomials;// 用户的多项式
 
-    private BLSKeyPair[] blsKeyPairs;
+    @Getter
+    private BLSKeyPair[] blsKeyPairs;//用户的局部公私钥对
     private int THRESHOLD; // 阈值
     private int n;//成员个数
 
+    @Getter
     private BIG globalPrivateKey;
+    @Getter
     private ECP2 globalPublicKey;
 
     static{
@@ -139,6 +143,18 @@ public class SecretSharing {
         }
         return globalPrivateKey;
     }
+
+    /*
+          局部验证
+     */
+
+//    public boolean isCorrect()
+//    {
+//        for (int i=0;i<n;i++)
+//        {
+//
+//        }
+//    }
 
     @Override
     public String toString() {

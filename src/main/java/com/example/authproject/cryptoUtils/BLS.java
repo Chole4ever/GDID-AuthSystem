@@ -3,7 +3,10 @@ import org.apache.milagro.amcl.BLS381.*;
 import org.apache.milagro.amcl.HASH512;
 import org.apache.milagro.amcl.RAND;
 
+import java.math.BigInteger;
+
 public class BLS {
+    private static final BIG CURVE_ORDER; // 阶
     private static BIG G;
     private static ECP G1;
     private static ECP2 G2;  // G2 群的生成元
@@ -13,6 +16,7 @@ public class BLS {
         G = new BIG(ROM.CURVE_Gx);
         G1 = ECP.generator();
         G2 = ECP2.generator();
+        CURVE_ORDER = new BIG(ROM.CURVE_Order);
     }
     public BLS(String randomSeed)
     {
@@ -20,6 +24,67 @@ public class BLS {
         rng.clean();
         byte[] seed = randomSeed.getBytes();  // 可替换为更安全的随机种子
         rng.seed(seed.length, seed);
+    }
+
+    /*
+        模拟每个节点本地生成签名片段
+     */
+
+    public ECP[] generateSignatures(BLSKeyPair[] blsKeyPairs, byte[] msg) {
+        ECP[] signatures = new ECP[blsKeyPairs.length];
+        for (int i=0;i<blsKeyPairs.length;i++)
+        {
+            signatures[i] = generateSignature(msg,blsKeyPairs[i].getPrivateKey());
+        }
+        return signatures;
+    }
+
+    /*
+          生成聚合签名
+     */
+
+    public ECP generateAggregatedSignature(ECP[] signatures,int[] xValues,int t) throws Exception {
+        if(signatures.length<t) {
+            throw new Exception("Less than threshold");
+        }
+        ECP aggregatedSignature = new ECP();
+
+
+        // 遍历所有的签名
+        for (int i = 0; i < signatures.length; i++) {
+            // 计算拉格朗日基函数值
+            BIG Li = lagrangeBasis(i+1, xValues, BigInteger.ZERO);
+
+            // 将当前签名乘以其权重
+            ECP weightedSignature = new ECP(signatures[i]);
+            weightedSignature = weightedSignature.mul(Li);
+
+            // 将加权签名加到聚合签名上
+            aggregatedSignature.add(weightedSignature);
+        }
+
+        return aggregatedSignature;
+
+
+    }
+
+    /*
+         拉格朗日插值基函数计算
+         接受当前索引 i，所有节点 xValues，计算点 x
+     */
+
+    public BIG lagrangeBasis(int i, int[] xValues, BigInteger x) {
+        BigInteger numerator = BigInteger.ONE;//分子
+        BigInteger denominator = BigInteger.ONE;//分母
+
+        for (int j = 1; j <= xValues.length; j++) {
+            if (j != i) {
+                numerator = numerator.multiply(x.subtract(BigInteger.valueOf(xValues[j-1])));
+                denominator = denominator.multiply(BigInteger.valueOf(xValues[i-1]-xValues[j-1]));
+            }
+        }
+        BigInteger bigInteger = numerator.multiply(denominator.modInverse(bigToBigInteger(CURVE_ORDER)).mod(bigToBigInteger(CURVE_ORDER)));
+        return bigIntegerToBig(bigInteger) ;
     }
 
 
@@ -78,6 +143,32 @@ public class BLS {
         ECP2 publicKey_ = PAIR.G2mul(G2,privateKey); // 计算公钥 publicKey = privateKey * G
         return publicKey_.equals(publicKey);
     }
+
+    public static BigInteger bigToBigInteger(BIG big)
+    {
+        // 将 BIG 对象转换为字节数组
+        byte[] bigNumberBytes = new byte[BIG.MODBYTES]; // MODBYTES 是 BIG 类型所需的字节数
+        big.toBytes(bigNumberBytes);
+
+        // 使用字节数组创建 BigInteger
+        return new BigInteger(1, bigNumberBytes); // 使用 1 作为 signum 保证正数
+    }
+
+    // 辅助方法：将 BigInteger 转换为 BIG
+    public static BIG bigIntegerToBig(BigInteger bigIntegerValue) {
+        // 将 BigInteger 转换为字节数组
+        byte[] originalBytes = bigIntegerValue.toByteArray();
+        byte[] bigBytes = new byte[48]; // 创建一个固定大小的字节数组
+
+        // 复制原始字节数组到新数组，确保大端对齐
+        int start = 48 - originalBytes.length;
+        for (int i = 0; i < originalBytes.length; i++) {
+            bigBytes[start + i] = originalBytes[i];
+        }
+        return new BIG(BIG.fromBytes(bigBytes));
+    }
+
+
 
 }
 

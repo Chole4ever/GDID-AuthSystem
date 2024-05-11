@@ -24,10 +24,8 @@ public class Threshold {
         this.ss = new SecretSharing(n,t);
     }
 
-//    private HashMap<String,BLSKeyPair> generateKeyPair(int n,int t, List<String> didIdentitys)
-//    {
-//
-//    }
+
+
 
     public static void main(String[] args) {
 
