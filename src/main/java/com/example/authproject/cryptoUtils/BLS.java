@@ -4,6 +4,7 @@ import org.apache.milagro.amcl.HASH512;
 import org.apache.milagro.amcl.RAND;
 
 import java.math.BigInteger;
+import java.security.Signature;
 
 public class BLS {
     private static final BIG CURVE_ORDER; // 阶
@@ -12,19 +13,152 @@ public class BLS {
     private static ECP2 G2;  // G2 群的生成元
     private final RAND rng;
 
-    static{
+    static {
         G = new BIG(ROM.CURVE_Gx);
         G1 = ECP.generator();
         G2 = ECP2.generator();
         CURVE_ORDER = new BIG(ROM.CURVE_Order);
     }
-    public BLS(String randomSeed)
-    {
+
+    public BLS(String randomSeed) {
         rng = new RAND();
         rng.clean();
         byte[] seed = randomSeed.getBytes();  // 可替换为更安全的随机种子
         rng.seed(seed.length, seed);
     }
+
+
+
+    /*
+           exp2实验接口2
+
+           生成签名（并行）+聚合签名时间
+     */
+    public static Long[][] exp2Api1(int[] testN, int[] testT, SecretSharing[][] ss) throws Exception {
+        Long[][] expData = new Long[testN.length][testT.length];
+
+        for (int i=0;i<testN.length;i++)
+        {
+            for(int j=0;j<testT.length;j++)
+            {
+                int n = testN[i];
+                int t = testT[j];
+                if(n<t) {
+                    continue;
+                }
+
+                //执行100次取avg time
+                Long data = 0L;
+                for(int x = 0;x<100;x++)
+                {
+                    SecretSharing cur = ss[i][j];
+                    BLSKeyPair[] blsKeyPairs = cur.getBlsKeyPairs();
+                    BLS bls = new BLS("haha so nice a day.");
+                    String content = "for test,not for any other intention.Tell the world 2 fuck off";
+                    ECP[] signatures = bls.generateSignatures(blsKeyPairs,content.getBytes());
+                    int[] xValues = new int[n];
+                    for(int m=0;m<xValues.length;m++)
+                    {
+                        xValues[m] = m+1;
+                    }
+                    //开始时间
+                    long stime = System.nanoTime();
+
+                    //聚合签名
+                    bls.generateAggregatedSignature(signatures,xValues,t);
+
+                    // 结束时间
+                    long etime = System.nanoTime();
+                    data+=etime-stime;
+
+                    // 计算执行时间
+                    if(x>=10) {
+                        data+=etime-stime;
+                    }
+                }
+                data/=90;
+                expData[i][j] =data;
+
+            }
+        }
+        return expData;
+    }
+
+    /*
+          不使用GDID
+          【验证签名时间*n（串行）*2 （验证身份n次+验证凭证n次）】
+     */
+    public static Double[] exp3Api(int[] testN,byte[] content) throws Exception {
+
+        Double[] expData = new Double[testN.length];
+        Long validationTime = 0L;
+        //String content = "I am so honored to be here for my lord.";
+        BLS bls = new BLS("Eat your crust");
+        for(int i=0;i<testN.length;i++)
+        {
+            Long verifySignatureTime = 0L;
+            for(int j=0;j<30;j++)
+            {
+
+                BLSKeyPair blsKeyPair = bls.generateKeyPair();
+                ECP signature = bls.generateSignature(content,blsKeyPair.getPrivateKey());
+
+                //开始时间
+                long stime = System.nanoTime();
+
+                //验证
+                boolean isValid = bls.verifySignature(blsKeyPair.getPublicKey(),signature,content);
+                // 结束时间
+                long etime = System.nanoTime();
+
+                if(!isValid) {
+                    throw new Exception("???");
+                }
+                // 计算执行时间
+                verifySignatureTime+=etime-stime;
+            }
+
+            verifySignatureTime/=30;
+
+            expData[i] = verifySignatureTime*2*testN[i]/1000000.0;
+        }
+        return expData;
+
+    }
+
+
+    /*
+        exp3Api2接口，
+        身份认证时延计算（gdid)
+           【验证凭证&验证身份（均只验证一次）】
+           阈值 n/2+1
+     */
+
+    public static Double exp3Api1(byte[] content) {
+        Double expData = 0.0;
+
+        BLS bls = new BLS("How are you.");
+        BLSKeyPair blsKeyPair = bls.generateKeyPair();
+        //String content = "Just calm down";
+        ECP signature = bls.generateSignature(content,blsKeyPair.getPrivateKey());
+
+        for (int i=0;i<50;i++)
+        {
+            //开始时间
+            long stime = System.nanoTime();
+
+            //验证
+            boolean isValid = bls.verifySignature(blsKeyPair.getPublicKey(),signature,content);
+
+            // 结束时间
+            long etime = System.nanoTime();
+            expData+= etime-stime;
+        }
+
+        return expData*2/50000000.0;
+    }
+
+
 
     /*
         模拟每个节点本地生成签名片段
@@ -50,8 +184,8 @@ public class BLS {
         ECP aggregatedSignature = new ECP();
 
 
-        // 遍历所有的签名
-        for (int i = 0; i < signatures.length; i++) {
+        // 遍历t个签名
+        for (int i = 0; i < t; i++) {
             // 计算拉格朗日基函数值
             BIG Li = lagrangeBasis(i+1, xValues, BigInteger.ZERO);
 

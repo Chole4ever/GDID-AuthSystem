@@ -1,0 +1,18 @@
+{
+  "did": "did:example:123456789abcdefghi",
+  "claims": [
+    {
+      "type": "name",
+      "value": "John Doe"
+    },
+    {
+      "type": "birthdate",
+      "value": "1990-01-01"
+    },
+    {
+      "type": "email",
+      "value": "john.doe@example.com"
+    }
+  ],
+  "signature": "3045022100abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678902203456789abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"
+}

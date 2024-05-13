@@ -13,7 +13,8 @@ import java.math.BigInteger;
 
 import static com.example.authproject.cryptoUtils.SecretSharing.*;
 
-@SpringBootTest
+
+
 public class SSTest {
 
     @Test

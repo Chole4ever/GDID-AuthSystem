@@ -3,7 +3,7 @@ package com.example.authproject.cryptoUtils;
 import lombok.Getter;
 import org.apache.milagro.amcl.BLS381.*;
 import org.apache.milagro.amcl.RAND;
-import scala.util.Random;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,12 +46,12 @@ public class SecretSharing {
         for (int i=0;i<n;i++) {
             this.allPolynomials[i] = generatePolynomial();
         }
+        // 计算全局公钥
+        this.globalPublicKey = computeGlobalPublicKey(allPolynomials);
 
         // 计算全局私钥
         this.globalPrivateKey = computeGlobalPrivateKey(allPolynomials);
 
-        // 计算全局公钥
-        this.globalPublicKey = computeGlobalPublicKey(allPolynomials);
 
         // 计算每个用户的公私钥
         for(int i=0;i<n;i++)
@@ -63,6 +63,106 @@ public class SecretSharing {
         if(!BLS.isKeyPairValid(globalPrivateKey,globalPublicKey)) {
             throw new Exception("SS init wrong");
         }
+
+
+
+    }
+
+    /*
+        exp2的实验接口
+
+        int[] testN = new int[]{3,5,10,20,50};
+        int[] testT = new int[]{2,3,5,10,20,50};
+     */
+
+    public static SecretSharing[][] exp2Api(int[] testN,int[] testT) throws Exception {
+        SecretSharing[][] ss = new SecretSharing[testN.length][testT.length];
+
+        for(int i=0;i<testN.length;i++)
+        {
+            for(int j=0;j<testT.length;j++)
+            {
+                int n = testN[i];int t = testT[j];
+                if(n<t) {
+                    continue;
+                }
+
+                SecretSharing s = new SecretSharing(n,t);
+                ss[i][j] = s;
+            }
+        }
+        return ss;
+    }
+
+
+
+
+    /*
+        exp1的实验接口
+     */
+    public static Long[][] exp1Api(int[] testN, int[] testT) throws Exception {
+        Long[][] expData = new Long[testN.length][testT.length];
+
+        for (int i=0;i<testN.length;i++)
+        {
+            for(int j=0;j<testT.length;j++)
+            {
+                int n = testN[i];int t = testT[j];
+
+                if(n<t){
+                    continue;
+                }
+                SecretSharing ss = new SecretSharing(n,t);
+                //每次实验
+                List<Long> exps = new ArrayList<>();
+                for (int tt=0;tt<50;tt++)
+                {
+                    long stime = System.nanoTime();
+                    // 执行时间
+
+                    // 为每个用户生成多项式
+                    ss.allPolynomials = new BIG[n][t];
+                    for (int ii=0;ii<n;ii++) {
+                        ss.allPolynomials[ii] = ss.generatePolynomial();
+                    }
+                    // 计算全局公钥
+                    ss.globalPublicKey = ss.computeGlobalPublicKey(ss.allPolynomials);
+
+                    // 计算全局私钥
+                    ss.globalPrivateKey = ss.computeGlobalPrivateKey(ss.allPolynomials);
+                    // 计算每个用户的公私钥
+                    for(int ii=0;ii<n;ii++)
+                    {
+                        BIG sk = ss.generateLocalPrivateKey(ii+1,ss.allPolynomials);
+                        ECP2 pk =  G2.mul(sk);
+                        ss.blsKeyPairs[ii] = new BLSKeyPair(pk,sk);
+                    }
+                    if(!BLS.isKeyPairValid(ss.getGlobalPrivateKey(),ss.getGlobalPublicKey())) {
+                        throw new Exception("SS init wrong");
+                    }
+
+                    // 结束时间
+                    long etime = System.nanoTime();
+
+                    // 计算执行时间
+                    exps.add(etime-stime);
+                    // System.out.printf("执行时长：%d 纳秒.\n", (etime - stime));
+
+                }
+
+                //System.out.println(exps);
+                Long a = Long.valueOf(0);
+                for (int jj=20;jj<exps.size();jj++)
+                {
+                    a+=exps.get(jj);
+                }
+                expData[i][j] = a/(exps.size()-20);
+            }
+
+        }
+        return expData;
+
+
     }
 
 
