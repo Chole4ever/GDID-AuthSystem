@@ -1,1 +1,1 @@
-testcode for DID authenticationm,based on weidentity
+Test code for DID authentication,built on weidentity
